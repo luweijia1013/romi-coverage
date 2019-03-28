@@ -6,7 +6,8 @@ class SharpIR
     public:
         SharpIR(byte pin);
         int  getDistanceRaw();
-        float  getDistanceInMM();
+        float getDistanceInMM();
+        float getVoltage();
         void calibrate();
 
     private:
@@ -23,6 +24,10 @@ int SharpIR::getDistanceRaw()
     return analogRead(pin);
 }
 
+float SharpIR::getVoltage(){
+    return analogRead(pin) * 5 / 1023.0;
+}
+
 
 /*
  * This piece of code is quite crucial to mapping
@@ -37,12 +42,12 @@ float SharpIR::getDistanceInMM()
     float distance = (float)analogRead( pin );
     
     // map this to 0 : 5v range.
-    distance *= 0.0048;
+    distance = distance * 5 / 1023.0;
 
-    const float exponent = (1/-0.616);
-    distance = pow( ( distance / 12.494 ), exponent);
+    const float exponent = (1/-0.691);
+    distance = pow( ( distance / 15.661 ), exponent);
        
-    return distance;
+    return distance * 10;
 }
 
 
