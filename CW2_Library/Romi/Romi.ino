@@ -152,8 +152,8 @@ void setup()
   // very fast!
   LeftSpeedControl.reset();
   RightSpeedControl.reset();
-  left_speed_demand = 5;
-  right_speed_demand = 5;
+  left_speed_demand = 15;
+  right_speed_demand = 15;
 
   
   
@@ -201,10 +201,10 @@ void doMovement() {
 
   // Check if we are about to collide.  If so,
   // zero forward speed
-  if( DistanceSensor.getDistanceRaw() > 450 ) {
+  if( DistanceSensor.getDistanceInMM() < 100 ) {
     forward_bias = 0;
   } else {
-    forward_bias = 5;
+    forward_bias = 15;
   }
 
   // Periodically set a random turn.
@@ -246,6 +246,7 @@ void doMapping() {
   // ...but feel free to investigate this.
   float distance = DistanceSensor.getDistanceInMM();
   if( distance < 40 && distance > 12 ) {
+    //Frank: should the distance above be more accurate?
 
     // We know the romi has the sensor mounted
     // to the front of the robot.  Therefore, the
