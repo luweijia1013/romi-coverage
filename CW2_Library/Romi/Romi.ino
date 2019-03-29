@@ -152,8 +152,8 @@ void setup()
   // very fast!
   LeftSpeedControl.reset();
   RightSpeedControl.reset();
-  left_speed_demand = 15;
-  right_speed_demand = 15;
+  left_speed_demand = 5;
+  right_speed_demand = 5;
 
   
   
@@ -201,11 +201,37 @@ void doMovement() {
 
   // Check if we are about to collide.  If so,
   // zero forward speed
-  if( DistanceSensor.getDistanceInMM() < 100 ) {
-    forward_bias = 0;
-  } else {
-    forward_bias = 15;
-  }
+  // Serial.println(DistanceSensor.getDistanceInMM());
+  // if( DistanceSensor.getDistanceInMM() < 100 ) {
+  //   forward_bias = 0;
+  //   turn_bias = randGaussian(0, 6.5 );
+  // } else {
+  //   forward_bias = 5;
+  //   turn_bias = 0;
+  // }
+
+  //line following with higher priority FRANK:just for test of line following so that i put it the first priority
+  int state = line_judge();
+   switch(state){
+     case 0:
+       forward_bias = 3;
+       turn_bias = 0;
+       break;
+     case 1:
+       Serial.println("!!!!!turn left!!!!!!!");
+       forward_bias = 0;
+       turn_bias = -4;
+       break;
+     case 2:
+       Serial.println("!!!!!turn right!!!!!!!");
+       forward_bias = 0;
+       turn_bias = 4;
+       break;
+     case 3:
+       forward_bias = 3;
+       turn_bias = 0;
+       break;
+   }
 
   // Periodically set a random turn.
   // Here, gaussian means we most often drive
@@ -214,7 +240,7 @@ void doMovement() {
     walk_update = millis();
 
     // randGaussian(mean, sd).  utils.h
-    turn_bias = randGaussian(0, 6.5 );
+    // turn_bias = randGaussian(0, 6.5 );
 
     // Setting a speed demand with these variables
     // is automatically captured by a speed PID 
@@ -222,6 +248,7 @@ void doMovement() {
     // for more information.
     left_speed_demand = forward_bias + turn_bias;
     right_speed_demand = forward_bias - turn_bias;
+    //Serial.println(left_speed_demand);
   } 
 
 }
@@ -293,4 +320,40 @@ void doMapping() {
   } 
 }
 
-
+/*
+* give the result of line detection
+* returns 0 for go straight, 1 for turn left, 2 for turn right, 3 for not on the line
+*/
+int line_judge(){
+  float irLeft = LineLeft.readRaw();
+  float irRight = LineRight.readRaw();
+  float irCentre = LineCentre.readRaw();
+  float irTotal = irLeft + irRight + irCentre;
+  float linePosition = 1000*irLeft/irTotal + 2000*irCentre/irTotal + 3000*irRight/irTotal - 2000;
+  Serial.print(irLeft);
+  Serial.print("  , ");
+  Serial.print(irCentre);
+  Serial.print("  , ");
+  Serial.print(irRight);
+  Serial.print("        --- ");
+  Serial.println(linePosition);
+  if(irCentre < 580){
+    return 3;
+  }
+  //vertical ciurcumstance
+  // if(irLeft > 580 && irCentre > 580 && irRight > 580){
+  //   //turn right
+  //   return 2;
+  // }
+  if(linePosition < -300){
+    //turn right
+    return 2;
+  }
+  if(linePosition > 300){
+    //turn left
+    return 1;
+  }
+  if(linePosition >= -300 && linePosition <= 300){
+    return 0;
+  }
+}
