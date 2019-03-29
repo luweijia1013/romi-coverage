@@ -337,7 +337,7 @@ int line_judge(){
   Serial.print(irRight);
   Serial.print("        --- ");
   Serial.println(linePosition);
-  if(irCentre < 580){
+  if(irCentre > 580){
     return 3;
   }
   //vertical ciurcumstance
