@@ -242,7 +242,9 @@ void doMovement() {
     case 2:
       line_follow();
       break;
-
+    case 3:
+      //obstacle
+      break;
    }
 
   
