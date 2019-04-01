@@ -174,7 +174,7 @@ void loop() {
 
   doMovement();
 
-  doMapping();
+  //doMapping();
   
   delay(2);
 }
@@ -188,6 +188,7 @@ void loop() {
  * better obstacle avoidance behaviour implemented for
  * your Experiment Day 1 baseline test.  
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+ int linestate = 0;
 void doMovement() {
 
   // Static means this variable will keep
@@ -210,46 +211,41 @@ void doMovement() {
   //   turn_bias = 0;
   // }
 
-  //line following with higher priority FRANK:just for test of line following so that i put it the first priority
-  int state = line_judge();
-   switch(state){
-     case 0:
-       forward_bias = 3;
-       turn_bias = 0;
-       break;
-     case 1:
-       Serial.println("!!!!!turn left!!!!!!!");
-       forward_bias = 0;
-       turn_bias = -4;
-       break;
-     case 2:
-       Serial.println("!!!!!turn right!!!!!!!");
-       forward_bias = 0;
-       turn_bias = 4;
-       break;
-     case 3:
-       forward_bias = 3;
-       turn_bias = 0;
-       break;
+  //line following
+   Serial.print("linestate:  ");
+   Serial.println(linestate);
+   switch(linestate){
+    case 0:
+      //random walking
+      // Periodically set a random turn.
+      // Here, gaussian means we most often drive
+      // forwards, and occasionally make a big turn.
+       if( millis() - walk_update > 500 ) {
+         forward_bias = 5;
+         walk_update = millis();
+
+         // randGaussian(mean, sd).  utils.h
+         turn_bias = randGaussian(0, 2 );
+         // Setting a speed demand with these variables
+        // is automatically captured by a speed PID 
+        // controller in timer3 ISR. Check interrupts.h
+        // for more information.
+        left_speed_demand = forward_bias + turn_bias;
+        right_speed_demand = forward_bias - turn_bias;
+      }
+      line_judge();
+      //obstacle things
+      break;
+    case 1:
+      line_adjust();
+      break;
+    case 2:
+      line_follow();
+      break;
+
    }
 
-  // Periodically set a random turn.
-  // Here, gaussian means we most often drive
-  // forwards, and occasionally make a big turn.
-  if( millis() - walk_update > 500 ) {
-    walk_update = millis();
-
-    // randGaussian(mean, sd).  utils.h
-    // turn_bias = randGaussian(0, 6.5 );
-
-    // Setting a speed demand with these variables
-    // is automatically captured by a speed PID 
-    // controller in timer3 ISR. Check interrupts.h
-    // for more information.
-    left_speed_demand = forward_bias + turn_bias;
-    right_speed_demand = forward_bias - turn_bias;
-    //Serial.println(left_speed_demand);
-  } 
+  
 
 }
 
@@ -322,9 +318,11 @@ void doMapping() {
 
 /*
 * give the result of line detection
-* returns 0 for go straight, 1 for turn left, 2 for turn right, 3 for not on the line
+* returns 0 for on the line, 3 for not on the line
 */
+bool online = false;
 int line_judge(){
+  int result = 3;
   float irLeft = LineLeft.readRaw();
   float irRight = LineRight.readRaw();
   float irCentre = LineCentre.readRaw();
@@ -337,23 +335,79 @@ int line_judge(){
   Serial.print(irRight);
   Serial.print("        --- ");
   Serial.println(linePosition);
-  if(irCentre > 580){
-    return 3;
+  if((irLeft+irCentre+irRight) < 1500){
+    return result;
   }
-  //vertical ciurcumstance
-  // if(irLeft > 580 && irCentre > 580 && irRight > 580){
-  //   //turn right
-  //   return 2;
-  // }
-  if(linePosition < -300){
-    //turn right
-    return 2;
-  }
-  if(linePosition > 300){
-    //turn left
-    return 1;
-  }
-  if(linePosition >= -300 && linePosition <= 300){
+  else{
+    linestate = 1;
     return 0;
+  }
+}
+
+void line_adjust(){
+  float irLeft = LineLeft.readRaw();
+  float irRight = LineRight.readRaw();
+  float irCentre = LineCentre.readRaw();
+  float irTotal = irLeft + irRight + irCentre;
+  float linePosition = 1000*irLeft/irTotal + 2000*irCentre/irTotal + 3000*irRight/irTotal - 2000;
+  Serial.print(irLeft);
+  Serial.print("  , ");
+  Serial.print(irCentre);
+  Serial.print("  , ");
+  Serial.print(irRight);
+  Serial.print("        --- ");
+  Serial.println(linePosition);
+  if(linePosition < -200){
+    //turn left
+    left_speed_demand = -3;
+    right_speed_demand = 3;
+  }
+  if(linePosition > 200){
+    //turn right
+    left_speed_demand = 3;
+    right_speed_demand = -3;
+  }
+  //vertical
+  if(irLeft + irRight + irCentre > 2300){
+    //turn right
+    left_speed_demand = 3;
+    right_speed_demand = -3;
+    return;
+  }
+  if(linePosition >= -200 && linePosition <= 200){
+    linestate = 2;
+  }
+}
+bool spin = false;
+
+void line_follow() {
+  float irLeft = LineLeft.readRaw();
+  float irRight = LineRight.readRaw();
+  float irCentre = LineCentre.readRaw();
+  float irTotal = irLeft + irRight + irCentre;
+  float linePosition = 1000*irLeft/irTotal + 2000*irCentre/irTotal + 3000*irRight/irTotal - 2000;
+  Serial.print(irLeft);
+  Serial.print("  , ");
+  Serial.print(irCentre);
+  Serial.print("  , ");
+  Serial.print(irRight);
+  Serial.print("        --- ");
+  Serial.println(linePosition);
+  //END
+  //vertical but will shake when go straight on the line
+  if(irLeft + irRight + irCentre > 2300){
+    //turn right
+    linestate = 1;
+    return;
+  }
+  if (linePosition < -200 || linePosition > 200) {
+    linestate = 1;
+  }
+  else {
+    left_speed_demand = 5;
+    right_speed_demand = 5;
+  }
+  if ((irLeft+irCentre+irRight) < 1500) {
+    linestate = 0;
   }
 }

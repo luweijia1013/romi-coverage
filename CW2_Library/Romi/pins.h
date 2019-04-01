@@ -8,8 +8,8 @@
 #define ENCODER_RIGHT_B_PIN  23
 #define ENCODER_LEFT_A_PIN  26
 
-#define LINE_LEFT_PIN A4 //Pin for the left line sensor
-#define LINE_CENTRE_PIN A3 //Pin for the centre line sensor
+#define LINE_LEFT_PIN A3 //Pin for the left line sensor
+#define LINE_CENTRE_PIN A4 //Pin for the centre line sensor
 #define LINE_RIGHT_PIN A2 //Pin for the right line sensor
 
 #define SHARP_IR_PIN A0 //Pin for the IR Distance sensor
