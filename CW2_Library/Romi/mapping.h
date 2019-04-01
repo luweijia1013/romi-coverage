@@ -117,7 +117,7 @@ void Mapper::fillObstacle()
     }
 }
 
-int Mapper::dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION],bool (&obstacle_visited)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i){
+int Mapper::dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION], bool (&obstacle_visited)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i){
     if(obstacle_visited[j][i] || obstacle_inside[j][i]){
         return 1;
     }
