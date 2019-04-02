@@ -12,11 +12,16 @@ class Mapper
     public:
         void resetMap();
         void printMap();
+        char readMapFeatureByIndex(int ind_y, int ind_x);
         void updateMapFeature(byte feature, int y, int x);
         void updateMapFeature(byte feature, float y, float x);
+        void updateMapFeature(byte feature, int address);
+        void checkMap();
+        void fillObstacle();
         
         int  indexToPose(int i, int map_size, int resolution);
         int  poseToIndex(int x, int map_size, int resolution);
+        int  dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i);
     
     private:
         int X_size;
@@ -102,13 +107,13 @@ void Mapper::fillObstacle()
             value = EEPROM.read(eeprom_address);//, value);
             if(value == '#'){
                 bool obstacle_inside[MAP_RESOLUTION][MAP_RESOLUTION] = {false};
-                bool obstacle_visited[MAP_RESOLUTION][MAP_RESOLUTION] = {false};
                 //std::vector<int> obstacle_inside;
-                dfs(& obstacle_inside,& obstacle_visited, j, i);
-                for(int m=0;m<MAP_RESOLUTION;,m++){
-                    for(int n=0;n<MAP_RESOLUTION;n++){
-                        if(obstacle_inside[n][m]){
-
+                if(dfs(obstacle_inside, j, i) >= 0){
+                    for(int m=0;m<MAP_RESOLUTION;m++){
+                        for(int n=0;n<MAP_RESOLUTION;n++){
+                            if(obstacle_inside[n][m]){
+                                updateMapFeature('O',(m*MAP_RESOLUTION)+n);
+                            }
                         }
                     }
                 }
@@ -117,15 +122,15 @@ void Mapper::fillObstacle()
     }
 }
 
-int Mapper::dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION], bool (&obstacle_visited)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i){
-    if(obstacle_visited[j][i] || obstacle_inside[j][i]){
+int Mapper::dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i){
+    if(obstacle_inside[j][i]){
         return 1;
     }
     if(readMapFeatureByIndex(j,i) != '#' && readMapFeatureByIndex(j,i) != 'O'){
         return -1;
     }
     if(readMapFeatureByIndex(j,i) == '#'){
-        obstacle_visited[j][i] = true;
+        obstacle_inside[j][i] = true;
         if(dfs(obstacle_inside,j-1,i) < 0){
             return -1;
         }
@@ -138,7 +143,6 @@ int Mapper::dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION], bool (&
         if(dfs(obstacle_inside,j,i-1) < 0){
             return -1;
         }
-        obstacle_inside[j][i] = true;
         return 1;
     }
     if(readMapFeatureByIndex(j,i) == 'O'){
@@ -188,7 +192,7 @@ void Mapper::updateMapFeature(byte feature, int y, int x)
 
 void Mapper::updateMapFeature(byte feature, int address)
 {
-    if (adress < 0 || address > 1023)
+    if (address < 0 || address > 1023)
     {
       Serial.println(F("Error:Invalid co-ordinate"));
       return;
