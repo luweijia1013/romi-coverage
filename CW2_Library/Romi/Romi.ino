@@ -137,7 +137,8 @@ void setup()
   ButtonB.waitForButton();  
 
   Serial.println("Map Erased - Mapping Started");
-  Map.resetMap();
+  // Map.resetMap();
+  Map.initialTestMap();
 
   // Your extra setup code is best placed here:
   // ...
@@ -152,8 +153,8 @@ void setup()
   // very fast!
   LeftSpeedControl.reset();
   RightSpeedControl.reset();
-  left_speed_demand = 5;
-  right_speed_demand = 5;
+  left_speed_demand = 0;
+  right_speed_demand = 0;
 
   
   
@@ -170,9 +171,9 @@ void setup()
 void loop() {
 
   // Remember to always update kinematics!!
-  Pose.update();
+  //Pose.update();
 
-  doMovement();
+  //doMovement();
 
   //doMapping();
   

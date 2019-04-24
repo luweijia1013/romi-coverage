@@ -11,6 +11,7 @@ class Mapper
 {
     public:
         void resetMap();
+        void initialTestMap();
         void printMap();
         char readMapFeatureByIndex(int ind_y, int ind_x);
         void updateMapFeature(byte feature, int y, int x);
@@ -45,6 +46,35 @@ void Mapper::resetMap()
             {
                 EEPROM.update(eeprom_address, MAP_DEFAULT_FEATURE );
                 
+            }
+        }
+    }
+
+}
+
+void Mapper::initialTestMap()
+{
+
+    for (int i=0;i<MAP_RESOLUTION;i++)
+    {
+        for (int j=0;j<MAP_RESOLUTION;j++)
+        {
+            int eeprom_address = (i*MAP_RESOLUTION)+j;
+            
+            if (eeprom_address > 1023)
+            {
+                Serial.println(F("Error: EEPROM Address greater than 1023"));
+            }
+            else
+            {
+                if(eeprom_address == 26 || eeprom_address == 27 || eeprom_address == 28 || 
+                eeprom_address == 50 || eeprom_address == 53 || eeprom_address == 75 ||
+                eeprom_address == 76 || eeprom_address == 78 || eeprom_address == 102 || eeprom_address == 103){
+                    EEPROM.update(eeprom_address, 'O' );
+                }
+                else{
+                    EEPROM.update(eeprom_address, MAP_DEFAULT_FEATURE );
+                }
             }
         }
     }
