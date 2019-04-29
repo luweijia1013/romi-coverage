@@ -13,11 +13,12 @@ class Mapper
         void resetMap();
         void initialTestMap();
         void printMap();
-        char readMapFeatureByIndex(int ind_y, int ind_x);
+        char readMapFeatureByIndex(int ind_x, int ind_y);
         void updateMapFeature(byte feature, int y, int x);
         void updateMapFeature(byte feature, float y, float x);
         void updateMapFeature(byte feature, int address);
         void checkMap();
+        int  getUncoverCentre(int &x, int &y);
         void fillObstacle();
         
         int  indexToPose(int i, int map_size, int resolution);
@@ -124,6 +125,32 @@ char Mapper::readMapFeatureByIndex(int ind_x, int ind_y)
 void Mapper::checkMap()
 {
     fillObstacle();
+}
+
+int Mapper::getUncoverCentre(int &x, int &y)
+{
+    int uncover_num = 0;
+    float average_x = 0.0f;
+    float average_y = 0.0f;
+    for(int i = 0; i < MAP_RESOLUTION; i++){
+        for(int j = 0; j < MAP_RESOLUTION; j++){
+            if(readMapFeatureByIndex(i,j) == '#'){
+                uncover_num++;
+                average_x += j;
+                average_y += i;
+            }
+        }
+    }
+    x = (int)(average_x/uncover_num+0.5);
+    y = (int)(average_y/uncover_num+0.5);
+    if(x < 0 || x >= MAP_RESOLUTION || y < 0 || y >= MAP_RESOLUTION){
+        return -1;
+        //error
+    }
+    else{
+        return 1;
+        //success
+    }
 }
 
 void Mapper::fillObstacle()
