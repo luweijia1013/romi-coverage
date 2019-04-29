@@ -22,7 +22,7 @@ class Mapper
         
         int  indexToPose(int i, int map_size, int resolution);
         int  poseToIndex(int x, int map_size, int resolution);
-        int  dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i);
+        int  dfs(bool **obstacle_inside,bool (&obstacle_outside)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i);
     
     private:
         int X_size;
@@ -100,7 +100,7 @@ void Mapper::printMap()
   
 }
 
-char Mapper::readMapFeatureByIndex(int ind_y, int ind_x)
+char Mapper::readMapFeatureByIndex(int ind_x, int ind_y)
 {
     if (ind_x > MAP_X || ind_x < 0 || ind_y > MAP_Y || ind_y < 0)
     {
@@ -128,54 +128,95 @@ void Mapper::checkMap()
 
 void Mapper::fillObstacle()
 {
-    for (int i=0;i<MAP_RESOLUTION;i++)
+    bool obstacle_outside[MAP_RESOLUTION][MAP_RESOLUTION];
+    for(int i = 0;i<MAP_RESOLUTION;i++){
+      for(int j=0;j<MAP_RESOLUTION;j++){
+        obstacle_outside[i][j] = false;
+      }
+    }
+    for (int i=0;i<4;i++)
     {
-        for(int j=0;j<MAP_RESOLUTION;j++)
+        for(int j=0;j<4;j++)
         {
+//           Serial.print(i);
+//                     Serial.print(" ");
+//                     Serial.print(j);
+//                     Serial.print(" ");
+//                     Serial.print(obstacle_outside[i][j]);
+//                     Serial.println("&&");
             int eeprom_address = (i*MAP_RESOLUTION)+j;
             byte value;
             value = EEPROM.read(eeprom_address);//, value);
-            if(value == '#'){
-                bool obstacle_inside[MAP_RESOLUTION][MAP_RESOLUTION] = {false};
+            if(value == '#' && !obstacle_outside[i][j]){
+                bool **obstacle_inside = new bool*[MAP_RESOLUTION];
+                for(int p=0;p<MAP_RESOLUTION;p++){
+                    obstacle_inside[p] = new bool[MAP_RESOLUTION];
+                    for(int q=0;q<MAP_RESOLUTION;q++){
+                        obstacle_inside[p][q] = false;
+                    }
+                }
+                // bool obstacle_inside[MAP_RESOLUTION][MAP_RESOLUTION] = {false};
                 //std::vector<int> obstacle_inside;
-                if(dfs(obstacle_inside, j, i) >= 0){
+                if(dfs(obstacle_inside, obstacle_outside, i, j) >= 0){
+                    // Serial.print(i);
+                    // Serial.print(" ");
+                    // Serial.print(j);
+                    // Serial.println("&&");
                     for(int m=0;m<MAP_RESOLUTION;m++){
                         for(int n=0;n<MAP_RESOLUTION;n++){
-                            if(obstacle_inside[n][m]){
+                            if(obstacle_inside[m][n]){
                                 updateMapFeature('O',(m*MAP_RESOLUTION)+n);
                             }
                         }
                     }
                 }
+                for(int p=0;p<MAP_RESOLUTION;p++){
+                  for(int q=0;q<MAP_RESOLUTION;q++){
+                     obstacle_inside[p][q] = false;
+                  }
+                    delete[] obstacle_inside[p];
+                }
+                delete[] obstacle_inside;
             }
         }
     }
 }
 
-int Mapper::dfs(bool (&obstacle_inside)[MAP_RESOLUTION][MAP_RESOLUTION], int j, int i){
-    if(obstacle_inside[j][i]){
+int Mapper::dfs(bool **obstacle_inside,bool (&obstacle_outside)[MAP_RESOLUTION][MAP_RESOLUTION], int i, int j){
+//     Serial.print(i);
+//     Serial.print(" ");
+//     Serial.print(j);
+//     Serial.println("!!");
+    if(obstacle_inside[i][j]){
         return 1;
     }
-    if(readMapFeatureByIndex(j,i) != '#' && readMapFeatureByIndex(j,i) != 'O'){
+    if(obstacle_outside[i][j]){
         return -1;
     }
-    if(readMapFeatureByIndex(j,i) == '#'){
-        obstacle_inside[j][i] = true;
-        if(dfs(obstacle_inside,j-1,i) < 0){
+    if(readMapFeatureByIndex(i,j) != '#' && readMapFeatureByIndex(i,j) != 'O'){
+        return -1;
+    }
+    if(readMapFeatureByIndex(i,j) == '#'){
+        obstacle_inside[i][j] = true;
+        if(dfs(obstacle_inside, obstacle_outside,i+1,j) < 0){
+            obstacle_outside[i][j] = true;
             return -1;
         }
-        if(dfs(obstacle_inside,j+1,i) < 0){
+        if(dfs(obstacle_inside, obstacle_outside,i-1,j) < 0){
+            obstacle_outside[i][j] = true;
             return -1;
         }
-        if(dfs(obstacle_inside,j,i+1) < 0){
+        if(dfs(obstacle_inside, obstacle_outside,i,j+1) < 0){
+            obstacle_outside[i][j] = true;
             return -1;
         }
-        if(dfs(obstacle_inside,j,i-1) < 0){
+        if(dfs(obstacle_inside, obstacle_outside,i,j-1) < 0){
+            obstacle_outside[i][j] = true;
             return -1;
         }
         return 1;
     }
-    if(readMapFeatureByIndex(j,i) == 'O'){
+    if(readMapFeatureByIndex(i,j) == 'O'){
         return 1;
     }
 }

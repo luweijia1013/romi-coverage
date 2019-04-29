@@ -130,15 +130,16 @@ void setup()
   //
   // !!! A second button press will erase the map !!!
   ButtonB.waitForButton();  
-
+  Map.initialTestMap();
   Map.printMap();
-
+  Map.fillObstacle();
+  Map.printMap();
   // Watch for second button press, then begin autonomous mode.
   ButtonB.waitForButton();  
 
   Serial.println("Map Erased - Mapping Started");
+  
   // Map.resetMap();
-  Map.initialTestMap();
 
   // Your extra setup code is best placed here:
   // ...
@@ -171,13 +172,13 @@ void setup()
 void loop() {
 
   // Remember to always update kinematics!!
-  //Pose.update();
+  Pose.update();
 
   //doMovement();
 
   //doMapping();
   
-  delay(2);
+  delay(200);
 }
 
 
