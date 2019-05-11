@@ -4,10 +4,15 @@
 
 #define GEAR_RATIO 120.0
 #define COUNTS_PER_SHAFT_REVOLUTION 12.0
-const float WHEEL_RADIUS = 35.0;
-const float WHEEL_DISTANCE = 143/2;
+const float WHEEL_RADIUS = 35.49; //for my robot 35.4
+const float WHEEL_DISTANCE = 141.8;   //for my robot 140.585
 const float COUNTS_PER_WHEEL_REVOLUTION = GEAR_RATIO * COUNTS_PER_SHAFT_REVOLUTION;
 const float MM_PER_COUNT = ( 2 * WHEEL_RADIUS * PI ) / COUNTS_PER_WHEEL_REVOLUTION;
+const float CHASSIS_RADIUS = 80;//82.5;
+const float DIST_BETWEEN_IR_SENSORS = 81.5;
+const float ANGLE_BETWEEN_IR_SENSORS = 0.785398; //45 degrees    //DIST_BETWEEN_IR_SENSORS / CHASSIS_RADIUS;
+const float LINE_SENSOR_SEPARATION = 25;
+const float RFID_SENSOR_SEPARATION = 55;
 
 class Kinematics
 {
@@ -24,7 +29,11 @@ class Kinematics
          void  setDebug(bool state);
          float getDistanceFromOrigin();
          float getAngularVelocity();
-        
+         float getDistanceFrom(float init_X, float init_Y);
+         
+         long  last_left_encoder_count = 0;
+         long  last_right_encoder_count = 0;
+
     private:
 
          float x=900;
@@ -32,8 +41,6 @@ class Kinematics
          float theta=0;
          float last_theta = 0;
          float angular_velocity = 0;
-         long  last_left_encoder_count = 0;
-         long  last_right_encoder_count = 0;
          bool  debug=false;
          unsigned long last_update = 0;
 
@@ -51,19 +58,20 @@ void Kinematics::update()
     last_left_encoder_count = left_encoder_count;
     last_right_encoder_count = right_encoder_count;  
 
+
+    theta -=  (left_delta-right_delta) / (WHEEL_DISTANCE);  
     //Update position
     x+= mean_delta * cos(theta);
     y+= mean_delta * sin(theta);
-    theta -=  (left_delta-right_delta) / (WHEEL_DISTANCE);  
 
     float time_elapsed = millis() - last_update;
     last_update = millis();
 
-    angular_velocity = ( (left_delta-right_delta) / WHEEL_DISTANCE );
+/*    angular_velocity = ( (left_delta-right_delta) / (WHEEL_DISTANCE) );
     angular_velocity -= last_theta;
     angular_velocity /= time_elapsed;
+*/
     
-
     //Wrap theta between -PI and PI.
     if (theta > PI)
     {
@@ -73,6 +81,7 @@ void Kinematics::update()
     {
         theta += 2*PI;
     } 
+
 
     last_theta = theta;
 
@@ -153,4 +162,11 @@ float Kinematics::getDistanceFromOrigin()
     return sqrt(x*x + y*y);
 }
 
+float Kinematics::getDistanceFrom(float init_X, float init_Y)
+{
+    return sqrt(pow(x-init_X,2) + pow(y-init_Y,2));
+}
+
 #endif
+
+

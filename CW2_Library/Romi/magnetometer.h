@@ -144,3 +144,5 @@ void Magnetometer::calculateOffsets()
 
 
 #endif
+
+

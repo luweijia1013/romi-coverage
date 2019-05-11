@@ -91,7 +91,7 @@ float serialToBearing(char * serNum)
     {
         if(serNum[0] == serials[i])
         {
-          return y_poses[i];
+          return bearing[i];
         }
     }
 
@@ -102,6 +102,8 @@ float serialToBearing(char * serNum)
 
 
 #endif
+
+
 
 
 

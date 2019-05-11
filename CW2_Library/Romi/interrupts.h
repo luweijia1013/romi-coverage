@@ -1,3 +1,5 @@
+//#include "doMapping.h"
+#include "kinematics.h"
 
 // Volatile Global variables used by Encoder ISR.
 volatile long left_encoder_count; // used by encoder to count the rotation
@@ -13,11 +15,6 @@ volatile long last_count_right;
 volatile float right_speed;
 
 
-
-
-
-
-
 // extern tells this class that these
 // are declared as globals else where
 extern bool   use_speed_controller;
@@ -28,6 +25,8 @@ extern PID    RightSpeedControl;
 extern Motor  LeftMotor;
 extern Motor  RightMotor;
 
+//extern doMapping();
+//extern Kinematics Pose;
 
 // This ISR handles just Encoder 1
 // ISR to read the Encoder1 Channel A and B pins
@@ -186,25 +185,25 @@ void setupRightEncoder()
     // Now to set up PE6 as an external interupt (INT6), which means it can
     // have its own dedicated ISR vector INT6_vector
 
-    // Page 90, 11.1.3 External Interrupt Mask Register – EIMSK
+    // Page 90, 11.1.3 External Interrupt Mask Register РІР‚вЂњ EIMSK
     // Disable external interrupts for INT6 first
     // Set INT6 bit low, preserve other bits
     EIMSK = EIMSK & ~(1<<INT6);
     //EIMSK = EIMSK & B1011111; // Same as above.
   
-    // Page 89, 11.1.2 External Interrupt Control Register B – EICRB
+    // Page 89, 11.1.2 External Interrupt Control Register B РІР‚вЂњ EICRB
     // Used to set up INT6 interrupt
     EICRB |= ( 1 << ISC60 );  // using header file names, push 1 to bit ISC60
     //EICRB |= B00010000; // does same as above
 
-    // Page 90, 11.1.4 External Interrupt Flag Register – EIFR
+    // Page 90, 11.1.4 External Interrupt Flag Register РІР‚вЂњ EIFR
     // Setting a 1 in bit 6 (INTF6) clears the interrupt flag.
     EIFR |= ( 1 << INTF6 );
     //EIFR |= B01000000;  // same as above
 
     // Now that we have set INT6 interrupt up, we can enable
     // the interrupt to happen
-    // Page 90, 11.1.3 External Interrupt Mask Register – EIMSK
+    // Page 90, 11.1.3 External Interrupt Mask Register РІР‚вЂњ EIMSK
     // Disable external interrupts for INT6 first
     // Set INT6 bit high, preserve other bits
     EIMSK |= ( 1 << INT6 );
@@ -265,10 +264,10 @@ void setupLeftEncoder()
     PCICR = PCICR & ~( 1 << PCIE0 );
     // PCICR &= B11111110;  // Same as above
     
-    // 11.1.7 Pin Change Mask Register 0 – PCMSK0
+    // 11.1.7 Pin Change Mask Register 0 РІР‚вЂњ PCMSK0
     PCMSK0 |= (1 << PCINT4);
     
-    // Page 91, 11.1.6 Pin Change Interrupt Flag Register – PCIFR
+    // Page 91, 11.1.6 Pin Change Interrupt Flag Register РІР‚вЂњ PCIFR
     PCIFR |= (1 << PCIF0);  // Clear its interrupt flag by writing a 1.
 
     // Enable
@@ -295,7 +294,6 @@ void startTimer()
 
 ISR(TIMER3_COMPA_vect)
 {
-
     /*
      * Calculate Speeds
      */
@@ -317,4 +315,6 @@ ISR(TIMER3_COMPA_vect)
         RightMotor.setPower(right_motor_demand);
     }
 }
+
+
 

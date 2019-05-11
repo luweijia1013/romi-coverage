@@ -1,5 +1,5 @@
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Library Includes.                                                             *
  * Be sure to check each of these to see what variables/functions are made        *
  * global and accessible.                                                        *
@@ -9,30 +9,33 @@
 #include "pins.h"
 #include "utils.h"
 #include "motors.h"
+#include "motor.h"
 #include "pid.h"
 #include "interrupts.h"
-#include "kinematics.h"
+
 #include "line_sensors.h"
-#include "irproximity.h"
+//#include "irproximity.h"
 #include "mapping.h"
 #include "RF_Interface.h"
 #include <Wire.h>
 #include "imu.h"
 #include "magnetometer.h"
 #include "Pushbutton.h"
+#include "objectAvoid.h"
+//#include "pins.h"
 
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Definitions.  Other definitions exist in the .h files above.                  *
  * Also ensure you check pins.h for pin/device definitions.                      *
  *                                                                               *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #define BAUD_RATE 9600
+#define LOOP_DELAY 10
 
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Class Instances.                                                              *
  * This list is complete for all devices supported in this code.                 *
  *                                                                               *
@@ -40,10 +43,8 @@
 Kinematics    Pose; //Kinematics class to store position and heading
 
 LineSensor    LineLeft(LINE_LEFT_PIN); //Left line sensor
-LineSensor    LineCentre(LINE_CENTRE_PIN); //Centre line sensor
+//LineSensor    LineCentre(LINE_CENTRE_PIN); //Centre line sensor
 LineSensor    LineRight(LINE_RIGHT_PIN); //Right line sensor
-
-SharpIR       DistanceSensor(SHARP_IR_PIN); //Distance sensor
 
 Imu           Imu;
 
@@ -61,7 +62,27 @@ Mapper        Map; //Class for representing the map
 
 Pushbutton    ButtonB( BUTTON_B, DEFAULT_STATE_HIGH);
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+/*================================================================================================*/
+float Kp_sp = 3.5; //Proportional gain for position controller
+float Kd_sp= 20.9; //Derivative gain for position controller
+float Ki_sp= 0.04; //Integral gain for position controller
+
+PID   l_keep_sp(Kp_sp, Kd_sp, Ki_sp);
+PID   r_keep_sp(Kp_sp, Kd_sp, Ki_sp);
+
+float Kp_line = 0.1; //Proportional gain for position controller
+float Kd_line = 0; //Derivative gain for position controller
+float Ki_line = 0; //Integral gain for position controller
+
+PID keep_line(Kp_line, Kd_line, Ki_line);
+
+// modes: // 0-calibrate // 1-find line // 2-follow the line // 3-go home
+int mode;
+static unsigned long turnToUncover;
+
+/*================================================================================================*/
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Global variables.                                                             *
  * These global variables are not mandatory, but are used for the example loop() *
  * routine below.                                                                *
@@ -74,7 +95,14 @@ float left_speed_demand = 0;
 float right_speed_demand = 0;
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+//variables for borders detecion
+boolean upperBorder = false;
+boolean bottomBorder = false;
+boolean leftBorder = false;
+boolean rightBorder = false;
+int borderThickness = 200;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * This setup() routine initialises all class instances above and peripherals.   *
  * It is recommended:                                                            *
  * - You keep this sequence of setup calls if you are to use all the devices.    *
@@ -82,336 +110,363 @@ float right_speed_demand = 0;
  * - Insert new setup code after the below sequence.                             *
  *                                                                               *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-void setup()
-{
+ 
+void setup() {
 
-  // These two function set up the pin
-  // change interrupts for the encoders.
-  setupLeftEncoder();
-  setupRightEncoder();
-  startTimer();
+    // These two function set up the pin
+    // change interrupts for the encoders.
+    setupLeftEncoder();
+    setupRightEncoder();
+    startTimer();
+    //unsigned long timeStart = 0;
 
-  //Set speed control maximum outputs to match motor
-  LeftSpeedControl.setMax(100);
-  RightSpeedControl.setMax(100);
+            //Set speed control maximum outputs to match motor
+    LeftSpeedControl.setMax(100);
+    RightSpeedControl.setMax(100);
 
-  // For this example, we'll calibrate only the 
-  // centre sensor.  You may wish to use more.
-  LineCentre.calibrate();
+    // For this example, we'll calibrate only the
+    // centre sensor.  You may wish to use more.
+//  LineCentre.calibrate();
+    LineLeft.calibrate();
+    LineRight.calibrate();
 
-  //Setup RFID card
-  setupRFID();
+    //Setup RFID card
+    setupRFID();
 
-  // These functions calibrate the IMU and Magnetometer
-  // The magnetometer calibration routine require you to move
-  // your robot around  in space.  
-  // The IMU calibration requires the Romi does not move.
-  // See related lab sheets for more information.
-  /*
-  Wire.begin();
-  Mag.init();
-  Mag.calibrate();
-  Imu.init();
-  Imu.calibrate();
-  */
+    // These functions calibrate the IMU and Magnetometer
+    // The magnetometer calibration routine require you to move
+    // your robot around  in space.
+    // The IMU calibration requires the Romi does not move.
+    // See related lab sheets for more information.
+    /*
+    Wire.begin();
+    Mag.init();
+    Mag.calibrate();
+    Imu.init();
+    Imu.calibrate();
+    */
 
-  // Set the random seed for the random number generator
-  // from A0, which should itself be quite random.
-  randomSeed(analogRead(A0));
+    // Set the random seed for the random number generator
+    // from A0, which should itself be quite random.
+    randomSeed(analogRead(A0));
 
-  
-  // Initialise Serial communication
-  Serial.begin( BAUD_RATE );
-  delay(1000);
-  Serial.println("Board Reset");
 
-  // Romi will wait for you to press a button and then print
-  // the current map.
-  //
-  // !!! A second button press will erase the map !!!
-  ButtonB.waitForButton();  
-  Map.initialTestMap();
-  Map.printMap();
-  Map.fillObstacle();
-  Map.printMap();
-  // Watch for second button press, then begin autonomous mode.
-  ButtonB.waitForButton();  
+    // Initialise Serial communication
+    Serial.begin( BAUD_RATE );
+    delay(1000);
+    Serial.println("Board Reset");
 
-  Serial.println("Map Erased - Mapping Started");
-  
-  // Map.resetMap();
+    // Romi will wait for you to press a button and then print
+    // the current map.
+    //
+    // !!! A second button press will erase the map !!!
+    ButtonB.waitForButton();
 
-  // Your extra setup code is best placed here:
-  // ...
-  // ...
-  // but not after the following:
+    Map.printMap();
 
-  // Because code flow has been blocked, we need to reset the
-  // last_time variable of the PIDs, otherwise we update the
-  // PID with a large time elapsed since the class was 
-  // initialised, which will cause a big intergral term.
-  // If you don't do this, you'll see the Romi accelerate away
-  // very fast!
-  LeftSpeedControl.reset();
-  RightSpeedControl.reset();
-  left_speed_demand = 0;
-  right_speed_demand = 0;
+    // Watch for second button press, then begin autonomous mode.
+    ButtonB.waitForButton();
 
-  
-  
+    Serial.println("Map Erased - Mapping Started");
+    Map.resetMap();
+
+    // Your extra setup code is best placed here:
+    // ...
+    // ...
+    // but not after the following:
+
+    l_power = default_power;
+    r_power = default_power;
+    mode = 0;
+    //Pose.setDebug(1);
+    turnToUncover = millis();
+
+    // Because code flow has been blocked, we need to reset the
+    // last_time variable of the PIDs, otherwise we update the
+    // PID with a large time elapsed since the class was
+    // initialised, which will cause a big intergral term.
+    // If you don't do this, you'll see the Romi accelerate away
+    // very fast!
+    LeftSpeedControl.reset();
+    RightSpeedControl.reset();
+    left_speed_demand = 5;
+    right_speed_demand = 5;
+
 }
 
+void doMovement();
+void checkForBorder();
+void moveAwayFromBorder();
+int sign=1;
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * This loop() demonstrates all devices being used in a basic sequence.          
- * The Romi should:                                                                              
- * - move forwards with random turns 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * This loop() demonstrates all devices being used in a basic sequence.
+ * The Romi should:
+ * - move forwards with random turns
  * - log lines, RFID and obstacles to the map.
- * 
+ *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 void loop() {
 
-  // Remember to always update kinematics!!
-  Pose.update();
+    // Remember to always update kinematics!!
+    Pose.update();
+    // and do Mapping
+    doMapping();
+//    printIRSensors();
 
-  //doMovement();
+/*  sign = !sign;
+  rotate( deg2rad(60), sign);
+  delay(100);
+  move_straigth( 100, sign);
+*/
 
-  //doMapping();
-  
-  delay(200);
+
+//    print("Mode: ", mode);
+    switch (mode)
+    {
+
+        case 0:
+            doMovement();
+            break;
+
+        /*case 1:
+            // Finding the line
+            follow_obstacle();
+            break;
+
+        case 2:
+            follow_line();
+            break;*/
+
+        case 3:
+            moveAwayFromBorder();
+            break;
+
+        default:
+            // statements
+            break;
+    }
+
+
+    delay(10);
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * We have implemented a random walk behaviour for you
- * with a *very* basic obstacle avoidance behaviour.  
- * It is enough to get the Romi to drive around.  We 
+ * with a *very* basic obstacle avoidance behaviour.
+ * It is enough to get the Romi to drive around.  We
  * expect that in your first week, should should get a
  * better obstacle avoidance behaviour implemented for
- * your Experiment Day 1 baseline test.  
+ * your Experiment Day 1 baseline test.
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
- int linestate = 0;
+
 void doMovement() {
 
-  // Static means this variable will keep
-  // its value on each call from loop()
-  static unsigned long walk_update = millis();
+    // Static means this variable will keep
+    // its value on each call from loop()
+    static unsigned long walk_update = millis();
 
-  // used to control the forward and turn
-  // speeds of the robot.
-  float forward_bias;
-  float turn_bias;
+    // used to control the forward and turn
+    // speeds of the robot.
+    float forward_bias;
+    float turn_bias;
 
-  // Check if we are about to collide.  If so,
-  // zero forward speed
-  // Serial.println(DistanceSensor.getDistanceInMM());
-  // if( DistanceSensor.getDistanceInMM() < 100 ) {
-  //   forward_bias = 0;
-  //   turn_bias = randGaussian(0, 6.5 );
-  // } else {
-  //   forward_bias = 5;
-  //   turn_bias = 0;
-  // }
+    // Check if we are about to collide.  If so,
+    // zero forward speed
+    //print("Center distance: ", centreDistanceSensor.getDistance());
 
-  //line following
-   Serial.print("linestate:  ");
-   Serial.println(linestate);
-   switch(linestate){
-    case 0:
-      //random walking
-      // Periodically set a random turn.
-      // Here, gaussian means we most often drive
-      // forwards, and occasionally make a big turn.
-       if( millis() - walk_update > 500 ) {
-         forward_bias = 5;
-         walk_update = millis();
+    if(centreDistanceSensor.getDistanceInMM() <= 200 || DistanceSensorRight.getDistanceInMM()<= 200 || DistanceSensor.getDistanceInMM() <= 200) {
+        forward_bias = 0;
+        turn_bias = randGaussian(0, 5);; //2.5;
+    }
+    /*else if (LineCentre.readRaw()>500)
+    {
+    }
+    else if (LineLeft.readRaw()>500 or LineRight.readRaw()>500)
+    {
+        forward_bias = 0;
+        turn_bias = 0;
+        mode=2;
+        use_speed_controller = false;
 
-         // randGaussian(mean, sd).  utils.h
-         turn_bias = randGaussian(0, 2 );
-         // Setting a speed demand with these variables
-        // is automatically captured by a speed PID 
+    }*/
+    else
+    {
+        forward_bias = 5;
+        turn_bias = randGaussian(0, 3.5);
+    }
+
+
+    // Periodically set a random turn.
+    // Here, gaussian means we most often drive
+    // forwards, and occasionally make a big turn.
+    if( millis() - walk_update > 500 ) {
+        walk_update = millis();
+
+        // randGaussian(mean, sd).  utils.h
+        //turn_bias = randGaussian(0, 3.5);
+
+        // Setting a speed demand with these variables
+        // is automatically captured by a speed PID
         // controller in timer3 ISR. Check interrupts.h
         // for more information.
         left_speed_demand = forward_bias + turn_bias;
         right_speed_demand = forward_bias - turn_bias;
-      }
-      line_judge();
-      //obstacle things
-      break;
-    case 1:
-      line_adjust();
-      break;
-    case 2:
-      line_follow();
-      break;
-    case 3:
-      //obstacle
-      break;
+    }
+
+    checkForBorder();
+   if (millis()-turnToUncover>20000)
+   {
+     turnToUncover = millis();
+     play_tone();
+     turnToUncoveredArea();
    }
 
-  
+}
 
+void turnToUncoveredArea()
+{
+  int x_ind_target;
+  int y_ind_target;
+  int result = Map.getUncoverCentre(x_ind_target, y_ind_target);
+  int x_ind_curr = Map.poseToIndex(Pose.getX(), MAP_X, MAP_RESOLUTION);
+  int y_ind_curr = Map.poseToIndex(Pose.getY(), MAP_Y, MAP_RESOLUTION);
+  Serial.print("before turn:");
+  Serial.println(x_ind_target);
+  Serial.println(y_ind_target);
+  float angle = Map.getAngleTO (x_ind_target, y_ind_target, x_ind_curr, y_ind_curr);
+  Serial.println("before direct:");
+  Serial.println(angle);
+  directAnyAngle(angle);
+}
+
+void checkForBorder()
+{
+    // checking if We are close to border
+    // Additionally changing mode to 2!!!.
+    float currentX = Pose.getX();
+    float currentY = Pose.getY();
+
+    if (currentX < borderThickness)
+    {
+//        play_tone();
+        bottomBorder=true;
+        mode = 3;
+    }
+    if (currentX > 1800 - borderThickness)
+    {
+//        play_tone();
+        upperBorder = true;
+        mode = 3;
+    }
+    if (currentY < borderThickness)
+    {
+//        play_tone();
+        leftBorder = true;
+        mode = 3;
+    }
+    if (currentY > 1800 - borderThickness)
+    {
+//        play_tone();
+        rightBorder = true;
+        mode = 3;
+    }
+}
+
+void moveAwayFromBorder()
+{
+    //play_tone();
+    if (upperBorder && leftBorder)
+    {
+        directAnyAngle(135);
+    }
+    else if (upperBorder && rightBorder)
+    {
+        directAnyAngle(-135);
+    }
+    else if (bottomBorder && leftBorder)
+    {
+        directAnyAngle(45);
+    }
+    else if (bottomBorder && rightBorder)
+    {
+        directAnyAngle(-45);
+    }
+    else if (bottomBorder)
+    {
+        directAnyAngle(0);
+    }
+    else if (upperBorder)
+    {
+        directAnyAngle(180);
+    }
+    else if (leftBorder)
+    {
+        directAnyAngle(90);
+    }
+    else if (rightBorder)
+    {
+        directAnyAngle(-90);
+    }
+
+    //runFW(500);
+    upperBorder = false;
+    bottomBorder = false;
+    rightBorder = false;
+    leftBorder = false;
+    mode = 0;
 }
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * This function groups up our sensor checks, and then
- * encodes into the map.  To get you started, we are 
- * simply placing a character into the map.  However,
- * you might want to look using a bitwise scheme to 
- * encode more information.  Take a look at mapping.h
- * for more information on how we are reading and
- * writing to eeprom memory.
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-void doMapping() {
-  
-  // Read the IR Sensor and determine distance in
-  // mm.  Make sure you calibrate your own code!
-  // We threshold a reading between 40mm and 12mm.
-  // The rationale being:
-  // We can't trust very close readings or very far.
-  // ...but feel free to investigate this.
-  float distance = DistanceSensor.getDistanceInMM();
-  if( distance < 40 && distance > 12 ) {
-    //Frank: should the distance above be more accurate?
 
-    // We know the romi has the sensor mounted
-    // to the front of the robot.  Therefore, the
-    // sensor faces along Pose.Theta.
-    // We also add on the distance of the 
-    // sensor away from the centre of the robot.
-    distance += 80;
+//Sensor fusion for Drive controller
+double Location()
+{
+    // calibrated sensor readings
+    double left_sensor = LineLeft.readRaw();
+//  double centre_sensor = LineCentre.readRaw();
+    double rigth_sensor = LineRight.readRaw();
+//  double total = left_sensor + centre_sensor +rigth_sensor;
+    double total = left_sensor +rigth_sensor;
 
+    // calculating probabilities
+    double P_left = left_sensor/total;
+//  double P_centre = centre_sensor/total;
+    double P_rigth = rigth_sensor/total;
 
-    // Here we calculate the actual position of the obstacle we have detected
-    float projected_x = Pose.getX() + ( distance * cos( Pose.getThetaRadians() ) );
-    float projected_y = Pose.getY() + ( distance * sin( Pose.getThetaRadians() ) );
-    Map.updateMapFeature( (byte)'O', projected_x, projected_y );
-    
-    
-  } 
+    // Sensor fusion
+//  double Location = (P_left*1000)+(P_centre*2000)+(P_rigth*3000);
+    double Location = (P_left*1000)+(P_rigth*3000);
 
-  // Check RFID scanner.
-  // Look inside RF_interface.h for more info.
-  if( checkForRFID() ) {
-
-    // Add card to map encoding.  
-    Map.updateMapFeature( (byte)'R', Pose.getY(), Pose.getX() );
-
-    // you can check the position reference and
-    // bearing information of the RFID Card in 
-    // the following way:
-    // serialToBearing( rfid.serNum[0] );
-    // serialToXPos( rfid.serNum[0] );
-    // serialToYPos( rfid.serNum[0] );
-    //
-    // Note, that, you will need to set the x,y 
-    // and bearing information in rfid.h for your
-    // experiment setup.  For the experiment days,
-    // we will tell you the serial number and x y 
-    // bearing information for the cards in use.  
-    
-  } 
-
-  // Basic uncalibrated check for a line.
-  // Students can do better than this after CW1 ;)
-  if( LineCentre.readRaw() > 580 ) {
-      Map.updateMapFeature( (byte)'L', Pose.getY(), Pose.getX() );
-  } 
+    return (Location-2000);
 }
 
-/*
-* give the result of line detection
-* returns 0 for on the line, 3 for not on the line
-*/
-bool online = false;
-int line_judge(){
-  int result = 3;
-  float irLeft = LineLeft.readRaw();
-  float irRight = LineRight.readRaw();
-  float irCentre = LineCentre.readRaw();
-  float irTotal = irLeft + irRight + irCentre;
-  float linePosition = 1000*irLeft/irTotal + 2000*irCentre/irTotal + 3000*irRight/irTotal - 2000;
-  Serial.print(irLeft);
-  Serial.print("  , ");
-  Serial.print(irCentre);
-  Serial.print("  , ");
-  Serial.print(irRight);
-  Serial.print("        --- ");
-  Serial.println(linePosition);
-  if((irLeft+irCentre+irRight) < 1500){
-    return result;
-  }
-  else{
-    linestate = 1;
-    return 0;
-  }
+// average value of all line following sensors
+float read_all_sensors()
+{
+//  return (LineLeft.readRaw()+LineCentre.readRaw()+LineRight.readRaw())/3;
+    return (LineLeft.readRaw()+LineRight.readRaw())/2;
 }
 
-void line_adjust(){
-  float irLeft = LineLeft.readRaw();
-  float irRight = LineRight.readRaw();
-  float irCentre = LineCentre.readRaw();
-  float irTotal = irLeft + irRight + irCentre;
-  float linePosition = 1000*irLeft/irTotal + 2000*irCentre/irTotal + 3000*irRight/irTotal - 2000;
-  Serial.print(irLeft);
-  Serial.print("  , ");
-  Serial.print(irCentre);
-  Serial.print("  , ");
-  Serial.print(irRight);
-  Serial.print("        --- ");
-  Serial.println(linePosition);
-  if(linePosition < -200){
-    //turn left
-    left_speed_demand = -3;
-    right_speed_demand = 3;
-  }
-  if(linePosition > 200){
-    //turn right
-    left_speed_demand = 3;
-    right_speed_demand = -3;
-  }
-  //vertical
-  if(irLeft + irRight + irCentre > 2300){
-    //turn right
-    left_speed_demand = 3;
-    right_speed_demand = -3;
-    return;
-  }
-  if(linePosition >= -200 && linePosition <= 200){
-    linestate = 2;
-  }
-}
-bool spin = false;
+void follow_line()
+{
+    // power controller
+    float changeInTurn = keep_line.update((float)0, (float) Location());
 
-void line_follow() {
-  float irLeft = LineLeft.readRaw();
-  float irRight = LineRight.readRaw();
-  float irCentre = LineCentre.readRaw();
-  float irTotal = irLeft + irRight + irCentre;
-  float linePosition = 1000*irLeft/irTotal + 2000*irCentre/irTotal + 3000*irRight/irTotal - 2000;
-  Serial.print(irLeft);
-  Serial.print("  , ");
-  Serial.print(irCentre);
-  Serial.print("  , ");
-  Serial.print(irRight);
-  Serial.print("        --- ");
-  Serial.println(linePosition);
-  //END
-  //vertical but will shake when go straight on the line
-  if(irLeft + irRight + irCentre > 2300){
-    //turn right
-    linestate = 1;
-    return;
-  }
-  if (linePosition < -200 || linePosition > 200) {
-    linestate = 1;
-  }
-  else {
-    left_speed_demand = 5;
-    right_speed_demand = 5;
-  }
-  if ((irLeft+irCentre+irRight) < 1500) {
-    linestate = 0;
-  }
+    float default_sp_L = (default_power) - changeInTurn;
+    float default_sp_R = (default_power) + changeInTurn;
+
+    applyMotorInputs(default_sp_L, default_sp_R);
+    delay(LOOP_DELAY);
+
+    // Final stop as line finishes
+    if ( read_all_sensors()<330)
+    {
+        clear_var();
+        play_tone();
+        mode=0;
+        use_speed_controller = true;
+    }
+
 }
