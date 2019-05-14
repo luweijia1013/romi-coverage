@@ -79,6 +79,7 @@ PID keep_line(Kp_line, Kd_line, Ki_line);
 // modes: // 0-calibrate // 1-find line // 2-follow the line // 3-go home
 int mode;
 static unsigned long turnToUncover;
+static unsigned long awayFromBorder;
 
 /*================================================================================================*/
 
@@ -100,7 +101,7 @@ boolean upperBorder = false;
 boolean bottomBorder = false;
 boolean leftBorder = false;
 boolean rightBorder = false;
-int borderThickness = 200;
+int borderThickness = 70;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * This setup() routine initialises all class instances above and peripherals.   *
@@ -272,6 +273,23 @@ void doMovement() {
     float forward_bias;
     float turn_bias;
 
+    checkForBorder();
+    // if (millis()-turnToUncover>10000)
+    // {
+    //     turnToUncover = millis();
+    //     play_tone();
+    //     // turnToUncoveredArea();
+    //     // Serial.print(Pose.getX());
+    //     // Serial.print("  ");
+    //     // Serial.println(Pose.getY()); 
+    //     directAnyAngle(180);
+    //     Serial.println("biiiiiiiiiii!!!!!!!!"); 
+    //     // Serial.print(Pose.getX());
+    //     // Serial.print("  ");
+    //     // Serial.println(Pose.getY()); 
+    //     return;
+    // }
+
     // Check if we are about to collide.  If so,
     // zero forward speed
     //print("Center distance: ", centreDistanceSensor.getDistance());
@@ -294,7 +312,24 @@ void doMovement() {
     else
     {
         forward_bias = 5;
-        turn_bias = randGaussian(0, 3.5);
+        /*** uncover_gaussian_algorithm ***/
+        float mean_gaussian = 0;
+        int x_ind_target;
+        int y_ind_target;
+        if(Map.getUncoverCentre(x_ind_target, y_ind_target) > 0){
+            int x_ind_curr = Map.poseToIndex(Pose.getX(), MAP_X, MAP_RESOLUTION);
+            int y_ind_curr = Map.poseToIndex(Pose.getY(), MAP_Y, MAP_RESOLUTION);
+            float angle = Map.getAngleTO (x_ind_target, y_ind_target, x_ind_curr, y_ind_curr);
+            float turningAngle = simplifyAngle(angle - Pose.getThetaDegrees());
+            mean_gaussian = -deg2rad(turningAngle);
+        } 
+        else{
+            Serial.println('GET UNCOVER CENTRE ERROR');
+        }
+        turn_bias = randGaussian(mean_gaussian, 3.5);
+        Serial.print(Pose.getX());
+        Serial.print("  ");
+        Serial.println(Pose.getY());        
     }
 
 
@@ -315,13 +350,7 @@ void doMovement() {
         right_speed_demand = forward_bias - turn_bias;
     }
 
-    checkForBorder();
-   if (millis()-turnToUncover>20000)
-   {
-     turnToUncover = millis();
-     play_tone();
-     turnToUncoveredArea();
-   }
+    
 
 }
 
@@ -332,7 +361,9 @@ void turnToUncoveredArea()
   int result = Map.getUncoverCentre(x_ind_target, y_ind_target);
   int x_ind_curr = Map.poseToIndex(Pose.getX(), MAP_X, MAP_RESOLUTION);
   int y_ind_curr = Map.poseToIndex(Pose.getY(), MAP_Y, MAP_RESOLUTION);
-  Serial.print("before turn:");
+  Serial.println("before turn:");
+  Serial.println(x_ind_curr);
+  Serial.println(y_ind_curr);
   Serial.println(x_ind_target);
   Serial.println(y_ind_target);
   float angle = Map.getAngleTO (x_ind_target, y_ind_target, x_ind_curr, y_ind_curr);
@@ -343,6 +374,10 @@ void turnToUncoveredArea()
 
 void checkForBorder()
 {
+    if(millis() - awayFromBorder < 5000){
+        //avoid multiple action continuesly for border
+        return;
+    }
     // checking if We are close to border
     // Additionally changing mode to 2!!!.
     float currentX = Pose.getX();
@@ -372,6 +407,11 @@ void checkForBorder()
         rightBorder = true;
         mode = 3;
     }
+    if(mode == 3){
+        awayFromBorder = millis();
+        moveAwayFromBorder();
+    }
+
 }
 
 void moveAwayFromBorder()

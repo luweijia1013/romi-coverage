@@ -147,8 +147,8 @@ void directAnyAngle(float desiredAngle)
 
     float turningAngle = simplifyAngle(desiredAngle - Pose.getThetaDegrees());
     turningAngle = deg2rad(turningAngle);
-    Serial.print("direct!!!!");
-    Serial.println(rad2deg(turningAngle));
+    // Serial.print("direct!!!!");
+    // Serial.println(rad2deg(turningAngle));
     //turnAnyAngle(rad2deg(turningAngle));
     use_speed_controller=false;
 
