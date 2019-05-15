@@ -79,6 +79,7 @@ PID keep_line(Kp_line, Kd_line, Ki_line);
 // modes: // 0-calibrate // 1-find line // 2-follow the line // 3-go home
 int mode;
 static unsigned long turnToUncover;
+static unsigned long InUncoverAlgo = -1;
 static unsigned long awayFromBorder;
 
 /*================================================================================================*/
@@ -170,6 +171,7 @@ void setup() {
 
     Serial.println("Map Erased - Mapping Started");
     Map.resetMap();
+    // Map.initialTestMap();
 
     // Your extra setup code is best placed here:
     // ...
@@ -315,23 +317,36 @@ void doMovement() {
         /*** uncover_gaussian_algorithm ***/
         float mean_gaussian = 0;
         float stand_devi = 3.5;
-        if(millis() - turnToUncover > 60000){
-            int x_ind_target;
-            int y_ind_target;
-            if(Map.getUncoverCentre(x_ind_target, y_ind_target) > 0){
-                int x_ind_curr = Map.poseToIndex(Pose.getX(), MAP_X, MAP_RESOLUTION);
-                int y_ind_curr = Map.poseToIndex(Pose.getY(), MAP_Y, MAP_RESOLUTION);
-                float angle = Map.getAngleTO (x_ind_target, y_ind_target, x_ind_curr, y_ind_curr);
-                float turningAngle = simplifyAngle(angle - Pose.getThetaDegrees());
-                mean_gaussian = -deg2rad(turningAngle);
-                stand_devi = 0;
-                Map.printMap();
-                Serial.print(x_ind_target);
-                Serial.println(y_ind_target);
-            } 
-            else{
-                Serial.println('GET UNCOVER CENTRE ERROR');
+        if(millis() - turnToUncover > 6000){
+            if(InUncoverAlgo < 0){
+                InUncoverAlgo = millis();
             }
+            else{ //if(millis() - InUncoverAlgo < 10000){
+                int x_ind_target;
+                int y_ind_target;
+                if(Map.getUncoverCentre(x_ind_target, y_ind_target) > 0){
+                    int x_ind_curr = Map.poseToIndex(Pose.getX(), MAP_X, MAP_RESOLUTION);
+                    int y_ind_curr = Map.poseToIndex(Pose.getY(), MAP_Y, MAP_RESOLUTION);
+                    float angle = Map.getAngleTO (x_ind_target, y_ind_target, x_ind_curr, y_ind_curr);
+                    float turningAngle = simplifyAngle(angle - Pose.getThetaDegrees());
+                    mean_gaussian = -deg2rad(turningAngle);
+                    stand_devi = 3.5;
+                    Map.printMap();
+                    Serial.print(x_ind_target);
+                    Serial.println(y_ind_target);
+                } 
+                else{
+                    Serial.println('GET UNCOVER CENTRE ERROR');
+                }
+            }
+            // else if(millis() - InUncoverAlgo > 20000){
+            //     InUncoverAlgo = millis();
+            // }
+            // else{
+            //     mean_gaussian = 0;
+            //     stand_devi = 3.5;
+            // }
+            
         }
         turn_bias = randGaussian(mean_gaussian, stand_devi);
         Serial.print(Pose.getX());

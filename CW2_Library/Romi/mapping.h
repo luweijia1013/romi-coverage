@@ -70,10 +70,11 @@ void Mapper::initialTestMap()
             }
             else
             {
-                if(eeprom_address == 26 || eeprom_address == 27 || eeprom_address == 28 || 
-                eeprom_address == 50 || eeprom_address == 53 || eeprom_address == 75 ||
-                eeprom_address == 76 || eeprom_address == 78 || eeprom_address == 102 || eeprom_address == 103){
-                    EEPROM.update(eeprom_address, 'O' );
+                // if(eeprom_address == 26 || eeprom_address == 27 || eeprom_address == 28 || 
+                // eeprom_address == 50 || eeprom_address == 53 || eeprom_address == 75 ||
+                // eeprom_address == 76 || eeprom_address == 78 || eeprom_address == 102 || eeprom_address == 103){
+                if(eeprom_address < 512){
+                    EEPROM.update(eeprom_address, ' ' );
                 }
                 else{
                     EEPROM.update(eeprom_address, MAP_DEFAULT_FEATURE );
