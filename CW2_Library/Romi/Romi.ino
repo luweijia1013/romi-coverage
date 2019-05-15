@@ -314,19 +314,25 @@ void doMovement() {
         forward_bias = 5;
         /*** uncover_gaussian_algorithm ***/
         float mean_gaussian = 0;
-        int x_ind_target;
-        int y_ind_target;
-        if(Map.getUncoverCentre(x_ind_target, y_ind_target) > 0){
-            int x_ind_curr = Map.poseToIndex(Pose.getX(), MAP_X, MAP_RESOLUTION);
-            int y_ind_curr = Map.poseToIndex(Pose.getY(), MAP_Y, MAP_RESOLUTION);
-            float angle = Map.getAngleTO (x_ind_target, y_ind_target, x_ind_curr, y_ind_curr);
-            float turningAngle = simplifyAngle(angle - Pose.getThetaDegrees());
-            mean_gaussian = -deg2rad(turningAngle);
-        } 
-        else{
-            Serial.println('GET UNCOVER CENTRE ERROR');
+        float stand_devi = 3.5;
+        if(millis() - turnToUncover > 60000){
+            int x_ind_target;
+            int y_ind_target;
+            if(Map.getUncoverCentre(x_ind_target, y_ind_target) > 0){
+                int x_ind_curr = Map.poseToIndex(Pose.getX(), MAP_X, MAP_RESOLUTION);
+                int y_ind_curr = Map.poseToIndex(Pose.getY(), MAP_Y, MAP_RESOLUTION);
+                float angle = Map.getAngleTO (x_ind_target, y_ind_target, x_ind_curr, y_ind_curr);
+                float turningAngle = simplifyAngle(angle - Pose.getThetaDegrees());
+                mean_gaussian = -deg2rad(turningAngle);
+                stand_devi = 0;
+                Map.updateMapFeature(x_ind_target,0);
+                Map.updateMapFeature(y_ind_target,1);
+            } 
+            else{
+                Serial.println('GET UNCOVER CENTRE ERROR');
+            }
         }
-        turn_bias = randGaussian(mean_gaussian, 3.5);
+        turn_bias = randGaussian(mean_gaussian, stand_devi);
         Serial.print(Pose.getX());
         Serial.print("  ");
         Serial.println(Pose.getY());        

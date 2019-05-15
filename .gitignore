@@ -58,5 +58,4 @@ dkms.conf
 
 #Frank: Configuration files
 *.ini
-.vscode/*
-*/*/.vscode/*
+**/.vscode
