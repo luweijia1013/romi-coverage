@@ -142,20 +142,61 @@ void Mapper::checkMap()
 
 int Mapper::getUncoverCentre(int &x, int &y)
 {
-    int uncover_num = 0;
-    float average_x = 0.0f;
-    float average_y = 0.0f;
-    for(int i = 0; i < MAP_RESOLUTION; i++){
-        for(int j = 0; j < MAP_RESOLUTION; j++){
+    int uncover_num_left_up = 0;
+    int uncover_num_left_down = 0;
+    int uncover_num_right_up = 0;
+    int uncover_num_right_down = 0;
+    for(int i = 0; i < MAP_RESOLUTION/2; i++){
+        for(int j = 0; j < MAP_RESOLUTION/2; j++){
             if(readMapFeatureByIndex(i,j) == '#'){
-                uncover_num++;
-                average_x += i;
-                average_y += j;
+                uncover_num_left_up++;
             }
         }
     }
-    x = (int)(average_x/uncover_num+0.5);
-    y = (int)(average_y/uncover_num+0.5);
+    for(int i = 0; i < MAP_RESOLUTION/2; i++){
+        for(int j = MAP_RESOLUTION/2; j < MAP_RESOLUTION; j++){
+            if(readMapFeatureByIndex(i,j) == '#'){
+                uncover_num_right_up++;
+            }
+        }
+    }
+    for(int i = MAP_RESOLUTION/2; i < MAP_RESOLUTION; i++){
+        for(int j = 0; j < MAP_RESOLUTION/2; j++){
+            if(readMapFeatureByIndex(i,j) == '#'){
+                uncover_num_left_down++;
+            }
+        }
+    }
+    for(int i = MAP_RESOLUTION/2; i < MAP_RESOLUTION; i++){
+        for(int j = MAP_RESOLUTION/2; j < MAP_RESOLUTION; j++){
+            if(readMapFeatureByIndex(i,j) == '#'){
+                uncover_num_right_down++;
+            }
+        }
+    }
+    int bigger1 = uncover_num_left_up > uncover_num_right_up ? uncover_num_left_up : uncover_num_right_up;
+    int big_index_1 = uncover_num_left_up > uncover_num_right_up ? 1 : 2;
+    int bigger2 = uncover_num_left_down > uncover_num_right_down?  uncover_num_left_down : uncover_num_right_down;
+    int big_index_2 = uncover_num_left_down > uncover_num_right_down ? 3 : 4;
+    int bigger = bigger1 > bigger2 ? big_index_1 : big_index_2;
+    switch(bigger){
+        case 1:
+            x = 2;
+            y = 2;
+        break;
+        case 2:
+            x = 2;
+            y = 24;
+        break;
+        case 3:
+            x = 24;
+            y = 2;
+        break;
+        case 4:
+            x = 24;
+            y = 24;
+        break;
+    }
     if(x < 0 || x >= MAP_RESOLUTION || y < 0 || y >= MAP_RESOLUTION){
         return -1;
         //error

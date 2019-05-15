@@ -321,7 +321,7 @@ void doMovement() {
             if(InUncoverAlgo < 0){
                 InUncoverAlgo = millis();
             }
-            else{ //if(millis() - InUncoverAlgo < 10000){
+            else if(millis() - InUncoverAlgo < 15000){
                 int x_ind_target;
                 int y_ind_target;
                 if(Map.getUncoverCentre(x_ind_target, y_ind_target) > 0){
@@ -339,13 +339,14 @@ void doMovement() {
                     Serial.println('GET UNCOVER CENTRE ERROR');
                 }
             }
-            // else if(millis() - InUncoverAlgo > 20000){
-            //     InUncoverAlgo = millis();
-            // }
-            // else{
-            //     mean_gaussian = 0;
-            //     stand_devi = 3.5;
-            // }
+            else if(millis() - InUncoverAlgo > 30000){
+                InUncoverAlgo = millis();
+            }
+            else{
+                mean_gaussian = 0;
+                stand_devi = 3.5;
+                Serial.println("***");
+            }
             
         }
         turn_bias = randGaussian(mean_gaussian, stand_devi);
