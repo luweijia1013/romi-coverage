@@ -148,8 +148,8 @@ int Mapper::getUncoverCentre(int &x, int &y)
         for(int j = 0; j < MAP_RESOLUTION; j++){
             if(readMapFeatureByIndex(i,j) == '#'){
                 uncover_num++;
-                average_x += j;
-                average_y += i;
+                average_x += i;
+                average_y += j;
             }
         }
     }

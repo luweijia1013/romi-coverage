@@ -325,8 +325,9 @@ void doMovement() {
                 float turningAngle = simplifyAngle(angle - Pose.getThetaDegrees());
                 mean_gaussian = -deg2rad(turningAngle);
                 stand_devi = 0;
-                Map.updateMapFeature(x_ind_target,0);
-                Map.updateMapFeature(y_ind_target,1);
+                Map.printMap();
+                Serial.print(x_ind_target);
+                Serial.println(y_ind_target);
             } 
             else{
                 Serial.println('GET UNCOVER CENTRE ERROR');
